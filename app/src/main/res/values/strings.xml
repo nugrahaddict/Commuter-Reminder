@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Commuter Reminder</string>
+    <string name="channel_tracking_name">Status Perjalanan</string>
+    <string name="channel_tracking_desc">Notifikasi senyap selama pelacakan perjalanan aktif</string>
+    <string name="channel_alarm_name">Alarm Stasiun</string>
+    <string name="channel_alarm_desc">Alarm keras saat mendekati stasiun tujuan</string>
+    <string name="notif_tracking_title">Perjalanan aktif</string>
+    <string name="notif_tracking_text">Melacak posisi menuju %1$s</string>
+    <string name="notif_tracking_distance">Menuju %1$s • %2$d m ke stasiun berikutnya</string>
+    <string name="notif_alarm_one_station">1 stasiun lagi!</string>
+    <string name="notif_alarm_one_station_text">Berikutnya: %1$s. Bersiap turun di %2$s.</string>
+    <string name="notif_alarm_arriving">Sampai tujuan!</string>
+    <string name="notif_alarm_arriving_text">Kereta tiba di %1$s. Segera turun!</string>
+    <string name="notif_alarm_passed">Sudah lewat tujuan!</string>
+    <string name="notif_alarm_passed_text">Kamu melewati %1$s. Turun dan kembali jika perlu.</string>
 </resources>

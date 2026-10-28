@@ -17,7 +17,7 @@ mendesati stasiun tujuan, khususnya saat tinggal 1 stasiun lagi sebelum tujuan.
 - Min SDK 26, Target/Compile SDK 36 (lokal sudah terpasang; rencana awal 35 disesuaikan)
 - Arsitektur: MVVM + Repository, ViewModeel per layar
 - DI: manual (constructor injection) dulu, Hilt menyusul jika proyek membesar
-- Data stasiun: database lokal (Room) berisi nama stasiun + koordinat GPS (offline-first)
+- Data stasiun: database lokal (Room 2.8) berisi nama stasiun + koordinat GPS (offline-first)
 - Lokasi: FusedLocationProviderClient (Google Play Services)
 - Background tracking: Foreground Service dengan tipe `location`, notifikasi permanen
 - Notifikasi & alarm: NotificationChannel terpisah untuk "tracking" (senyap) dan "alarm" (suara keras, full-screen intent)
@@ -51,8 +51,8 @@ mendesati stasiun tujuan, khususnya saat tinggal 1 stasiun lagi sebelum tujuan.
 ## Status Proyek
 - [x] Berkas context (AGENTS.md)
 - [x] Setup project Android (Gradle, struktur folder)
-- [ ] Data stasiun + model
-- [ ] UI pilih rute
-- [ ] Foreground service + tracking lokasi
-- [ ] Logika deteksi stasiun + alarm
+- [x] Data stasiun + model
+- [x] UI pilih rute
+- [x] Foreground service + tracking lokasi
+- [x] Logika deteksi stasiun + alarm
 - [ ] Testing di perangkat nyata
