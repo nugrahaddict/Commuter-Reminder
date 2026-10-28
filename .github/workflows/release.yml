@@ -39,7 +39,7 @@ jobs:
         run: |
           VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "apk_name=CommuterReminder-$VERSION-debug.apk" >> "$GITHUB_OUTPUT"
+          echo "apk_name=CommuterReminder-v$VERSION.apk" >> "$GITHUB_OUTPUT"
 
       - name: Rename APK
         run: |
@@ -49,9 +49,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Release ${{ steps.version.outputs.version }}
+          name: Commuter Reminder v${{ steps.version.outputs.version }}
           body: |
-            ## Commuter Reminder ${{ steps.version.outputs.version }}
+            ## Commuter Reminder v${{ steps.version.outputs.version }}
 
             Alarm KRL yang membangunkan kamu saat mendekati stasiun tujuan.
 
@@ -61,7 +61,8 @@ jobs:
             3. Berikan izin lokasi dan notifikasi saat diminta.
 
             ### Catatan
-            - Build debug (signed dengan debug key) — aman untuk uji coba pribadi.
+            - Nama aplikasi di launcher: **Commuter Reminder** (build release).
+            - Signed dengan debug key — aman untuk uji coba pribadi.
             - Butuh Google Play Services untuk pelacakan lokasi.
           files: app/build/outputs/apk/debug/${{ steps.version.outputs.apk_name }}
           draft: false

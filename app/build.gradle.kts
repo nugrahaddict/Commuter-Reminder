@@ -13,11 +13,15 @@ android {
         applicationId = "com.personaldevelopment.commuterreminder"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     buildTypes {
+        debug {
+            // nama app berbeda supaya debug & release bisa terpasang berdampingan
+            resValue("string", "app_name", "Commuter Reminder (Dev)")
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(

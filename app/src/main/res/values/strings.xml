@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Commuter Reminder</string>
+    <!-- app_name di-inject dari build.gradle per buildType:
+         debug = "Commuter Reminder (Dev)", release = "Commuter Reminder" -->
+
     <string name="channel_tracking_name">Status Perjalanan</string>
     <string name="channel_tracking_desc">Notifikasi senyap selama pelacakan perjalanan aktif</string>
     <string name="channel_alarm_name">Alarm Stasiun</string>
@@ -9,7 +11,7 @@
     <string name="notif_tracking_text">Memantau posisi menuju %1$s</string>
     <string name="notif_tracking_distance">Menuju %1$s • sisa %2$s</string>
     <string name="notif_alarm_near_title">Dekat stasiun tujuan!</string>
-    <string name="notif_alarm_near_text">Kamu sudah dalam radius 10 km dari %1$s. Bersiap!</string>
+    <string name="notif_alarm_near_text">Kamu sudah dalam radius %1$s dari %2$s. Bersiap!</string>
     <string name="notif_alarm_arriving">Sampai tujuan!</string>
     <string name="notif_alarm_arriving_text">Kamu tiba di %1$s.</string>
     <string name="notif_action_arrived">Sampai Tujuan</string>
