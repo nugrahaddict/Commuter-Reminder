@@ -26,6 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,6 +86,12 @@ fun RouteScreen(
                     var showMap by remember { mutableStateOf(false) }
                     var recenterTrigger by remember { mutableStateOf(0) }
 
+                    LaunchedEffect(uiState.origin?.id, uiState.destination?.id) {
+                        if (uiState.origin != null && uiState.destination != null) {
+                            showMap = true
+                        }
+                    }
+
                     val routeStationsForMap = remember(uiState.origin, uiState.destination, uiState.stations) {
                         buildList {
                             val origin = uiState.origin
@@ -108,6 +115,7 @@ fun RouteScreen(
                             origin = uiState.origin,
                             destination = uiState.destination,
                             recenterTrigger = recenterTrigger,
+                            focusBounds = routeStationsForMap,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)

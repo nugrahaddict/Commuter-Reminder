@@ -31,7 +31,8 @@ fun StationMap(
     origin: Station?,
     destination: Station?,
     modifier: Modifier = Modifier,
-    recenterTrigger: Int = 0
+    recenterTrigger: Int = 0,
+    focusBounds: List<Station> = emptyList()
 ) {
     val context = LocalContext.current
 
@@ -50,7 +51,13 @@ fun StationMap(
     }
 
     LaunchedEffect(currentLocation, routeStations, origin, destination) {
-        updateMap(mapView, currentLocation, routeStations, origin, destination, recenter = false)
+        updateMap(mapView, currentLocation, routeStations, origin, destination)
+    }
+
+    LaunchedEffect(focusBounds.map { it.id }.joinToString(",")) {
+        if (focusBounds.size >= 2) {
+            fitToStations(mapView, focusBounds)
+        }
     }
 
     LaunchedEffect(recenterTrigger) {
@@ -65,13 +72,21 @@ fun StationMap(
     AndroidView(factory = { mapView }, modifier = modifier)
 }
 
+private fun fitToStations(mapView: MapView, stations: List<Station>) {
+    val points = stations.map { GeoPoint(it.latitude, it.longitude) }
+    if (points.size < 2) return
+    val boundingBox = org.osmdroid.util.BoundingBox.fromGeoPoints(points)
+    mapView.post {
+        mapView.zoomToBoundingBox(boundingBox.increaseByScale(1.35f), false)
+    }
+}
+
 private fun updateMap(
     mapView: MapView,
     currentLocation: AppLocation?,
     routeStations: List<Station>,
     origin: Station?,
-    destination: Station?,
-    recenter: Boolean
+    destination: Station?
 ) {
     val overlays = mapView.overlays
     overlays.clear()
