@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [StationEntity::class], version = 1, exportSchema = false)
+@Database(entities = [StationEntity::class], version = 2, exportSchema = false)
 abstract class CommuterDatabase : RoomDatabase() {
 
     abstract fun stationDao(): StationDao
@@ -20,7 +20,7 @@ abstract class CommuterDatabase : RoomDatabase() {
                     context.applicationContext,
                     CommuterDatabase::class.java,
                     "commuter_reminder.db"
-                ).build().also { instance = it }
+                ).fallbackToDestructiveMigration().build().also { instance = it }
             }
     }
 }

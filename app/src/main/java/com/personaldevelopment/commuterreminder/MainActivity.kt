@@ -23,8 +23,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.personaldevelopment.commuterreminder.data.StationRepository
+import com.personaldevelopment.commuterreminder.tracking.LocationClient
 import com.personaldevelopment.commuterreminder.tracking.TrackingService
 import com.personaldevelopment.commuterreminder.ui.RouteScreen
 import com.personaldevelopment.commuterreminder.ui.RouteViewModel
@@ -77,12 +79,17 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val viewModel: RouteViewModel = viewModel {
-                        RouteViewModel(StationRepository.from(applicationContext))
+                        RouteViewModel(
+                            repository = StationRepository.from(applicationContext),
+                            locationClient = { LocationClient.locationUpdates(applicationContext) }
+                        )
                     }
                     viewModelInstance = viewModel
 
+                    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
                     RouteScreen(
-                        uiState = viewModel.uiState.value,
+                        uiState = uiState,
                         onOriginSelected = viewModel::selectOrigin,
                         onDestinationSelected = viewModel::selectDestination,
                         onStartJourney = { handleStartJourney() },

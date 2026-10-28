@@ -1,5 +1,6 @@
 package com.personaldevelopment.commuterreminder.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,7 +18,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -31,8 +32,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.personaldevelopment.commuterreminder.domain.model.Station
+import com.personaldevelopment.commuterreminder.ui.map.StationMap
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +82,10 @@ fun RouteScreen(
                         onPickDestination = { pickerTarget = PickerTarget.DESTINATION }
                     )
 
-                    val routeStations = remember(uiState.origin, uiState.destination, uiState.stations) {
+                    var showMap by remember { mutableStateOf(false) }
+                    var recenterTrigger by remember { mutableStateOf(0) }
+
+                    val routeStationsForMap = remember(uiState.origin, uiState.destination, uiState.stations) {
                         buildList {
                             val origin = uiState.origin
                             val destination = uiState.destination
@@ -94,11 +100,47 @@ fun RouteScreen(
                             }
                         }
                     }
+
+                    if (showMap) {
+                        StationMap(
+                            currentLocation = uiState.currentLocation,
+                            routeStations = routeStationsForMap,
+                            origin = uiState.origin,
+                            destination = uiState.destination,
+                            recenterTrigger = recenterTrigger,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { recenterTrigger++ },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = "Pusatkan Posisi")
+                            }
+                            OutlinedButton(
+                                onClick = { showMap = false },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = "Tutup Peta")
+                            }
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { showMap = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(text = "Lihat Peta")
+                        }
+                    }
+
+                    val routeStations = routeStationsForMap
                     if (routeStations.isNotEmpty()) {
                         RoutePreview(stations = routeStations, origin = uiState.origin, destination = uiState.destination)
                     }
 
-                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     if (uiState.isTracking) {
                         OutlinedButton(
@@ -183,7 +225,7 @@ private fun StationButton(
         )
         OutlinedButton(onClick = onClick, modifier = Modifier.weight(1f)) {
             Text(
-                text = station?.let { "${it.name} (${it.line})" } ?: "Pilih stasiun",
+                text = station?.let { "${it.name} (${it.lineShortName})" } ?: "Pilih stasiun",
                 maxLines = 1
             )
         }
@@ -221,50 +263,92 @@ private fun StationPickerDialog(
     onDismiss: () -> Unit,
     onSelected: (Station) -> Unit
 ) {
+    var step by remember { mutableStateOf(1) }
     var selectedLine by remember { mutableStateOf<String?>(null) }
     val lines = stations.map { it.line }.distinct().sorted()
-    val effectiveLine = selectedLine ?: lines.firstOrNull()
+    val lineStations = remember(selectedLine, stations) {
+        stations.filter { it.line == selectedLine }.sortedBy { it.orderIndex }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = title) },
+        title = {
+            Text(
+                text = when {
+                    step == 1 -> "Pilih Line"
+                    else -> "Pilih Stasiun — ${lineStations.firstOrNull()?.lineName ?: ""}"
+                }
+            )
+        },
         text = {
-            Column {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    lines.take(4).forEach { line ->
-                        FilterChip(
-                            selected = effectiveLine == line,
-                            onClick = { selectedLine = line },
-                            label = { Text(text = line) }
-                        )
+            when {
+                step == 1 -> {
+                    LazyColumn {
+                        items(lines) { line ->
+                            val sample = stations.first { it.line == line }
+                            val lineName = sample.lineName
+                            val lineShort = sample.lineShortName
+                            Card(
+                                onClick = {
+                                    selectedLine = line
+                                    step = 2
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    LineColorDot(line = line)
+                                    Column {
+                                        Text(
+                                            text = lineShort,
+                                            style = MaterialTheme.typography.titleSmall
+                                        )
+                                        Text(
+                                            text = lineName.substringAfter(" (").removeSuffix(")"),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyColumn(modifier = Modifier.height(320.dp)) {
-                    items(
-                        stations.filter { it.line == effectiveLine }.sortedBy { it.orderIndex }
-                    ) { station ->
-                        val enabled = station.id != excluded?.id
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp)
-                        ) {
-                            RadioButton(
-                                selected = false,
-                                onClick = { if (enabled) onSelected(station) },
-                                enabled = enabled
-                            )
-                            Text(
-                                text = if (enabled) station.name else "${station.name} (dipakai)",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (enabled) MaterialTheme.colorScheme.onSurface
-                                else MaterialTheme.colorScheme.outline
-                            )
+                else -> {
+                    Column {
+                        OutlinedButton(onClick = { step = 1 }) {
+                            Text(text = "← Ganti Line")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LazyColumn(modifier = Modifier.height(360.dp)) {
+                            items(lineStations) { station ->
+                                val enabled = station.id != excluded?.id
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 2.dp)
+                                ) {
+                                    RadioButton(
+                                        selected = false,
+                                        onClick = { if (enabled) onSelected(station) },
+                                        enabled = enabled
+                                    )
+                                    Text(
+                                        text = if (enabled) station.name else "${station.name} (dipakai)",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (enabled) MaterialTheme.colorScheme.onSurface
+                                        else MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -275,4 +359,21 @@ private fun StationPickerDialog(
             OutlinedButton(onClick = onDismiss) { Text(text = "Batal") }
         }
     )
+}
+
+@Composable
+private fun LineColorDot(line: String) {
+    val color = when (line) {
+        "BOGOR" -> Color(0xFFC62828)
+        "NAMBO" -> Color(0xFFE57373)
+        "CIKARANG" -> Color(0xFF1565C0)
+        "CIKARANG_UTARA" -> Color(0xFF42A5F5)
+        "RANGKAS" -> Color(0xFF2E7D32)
+        "TANGERANG" -> Color(0xFF6D4C41)
+        "PRIOK" -> Color(0xFFD81B60)
+        else -> MaterialTheme.colorScheme.primary
+    }
+    Canvas(modifier = Modifier.size(16.dp)) {
+        drawCircle(color = color)
+    }
 }

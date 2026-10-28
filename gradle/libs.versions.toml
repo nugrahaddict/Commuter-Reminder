@@ -9,6 +9,7 @@ composeBom = "2024.12.01"
 room = "2.8.0"
 playServicesLocation = "21.3.0"
 coroutinesPlayServices = "1.9.0"
+osmdroid = "6.1.20"
 junit = "4.13.2"
 
 [libraries]
@@ -26,6 +27,7 @@ androidx-room-runtime = { group = "androidx.room", name = "room-runtime", versio
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+osmdroid = { group = "org.osmdroid", name = "osmdroid-android", version.ref = "osmdroid" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutinesPlayServices" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 

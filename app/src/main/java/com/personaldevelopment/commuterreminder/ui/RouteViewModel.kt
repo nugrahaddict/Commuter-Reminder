@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.personaldevelopment.commuterreminder.data.StationRepository
 import com.personaldevelopment.commuterreminder.domain.model.Station
+import com.personaldevelopment.commuterreminder.tracking.AppLocation
+import com.personaldevelopment.commuterreminder.tracking.LocationClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,16 +18,35 @@ data class RouteUiState(
     val origin: Station? = null,
     val destination: Station? = null,
     val isTracking: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val currentLocation: AppLocation? = null
 )
 
-class RouteViewModel(private val repository: StationRepository) : ViewModel() {
+class RouteViewModel(
+    private val repository: StationRepository,
+    private val locationClient: LocationClientSource
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RouteUiState())
     val uiState: StateFlow<RouteUiState> = _uiState.asStateFlow()
 
     init {
         load()
+        observeLocation()
+    }
+
+    private fun observeLocation() {
+        viewModelScope.launch {
+            try {
+                locationClient.updates().collect { location ->
+                    _uiState.value = _uiState.value.copy(currentLocation = location)
+                }
+            } catch (_: SecurityException) {
+                // permission belum diberikan; peta tetap tampil tanpa posisi
+            } catch (_: Exception) {
+                // sumber lokasi gagal (misal play services tidak tersedia)
+            }
+        }
     }
 
     fun load() {
@@ -84,4 +105,8 @@ class RouteViewModel(private val repository: StationRepository) : ViewModel() {
                 it.orderIndex <= maxOf(origin.orderIndex, destination.orderIndex)
         }
     }
+}
+
+fun interface LocationClientSource {
+    fun updates(): kotlinx.coroutines.flow.Flow<AppLocation>
 }
