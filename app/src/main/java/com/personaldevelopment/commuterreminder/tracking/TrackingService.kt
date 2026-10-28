@@ -20,6 +20,7 @@ import com.personaldevelopment.commuterreminder.alarm.Notifier
 import com.personaldevelopment.commuterreminder.domain.ReminderConfig
 import com.personaldevelopment.commuterreminder.domain.ReminderDetector
 import com.personaldevelopment.commuterreminder.domain.ReminderEvent
+import com.personaldevelopment.commuterreminder.domain.ReminderSettings
 import com.personaldevelopment.commuterreminder.domain.model.Station
 
 class TrackingService : Service() {
@@ -50,9 +51,11 @@ class TrackingService : Service() {
                     stopTracking()
                     return START_NOT_STICKY
                 }
+                val radius = intent.getDoubleExtra(EXTRA_RADIUS_KM, ReminderSettings.ACTIVATION_RADIUS_KM)
+                ReminderSettings.ACTIVATION_RADIUS_KM = radius
                 destination = dest
                 detector = ReminderDetector(
-                    ReminderConfig(destination = dest)
+                    ReminderConfig(destination = dest, activationRadiusKm = radius)
                 )
                 startAsForeground(dest.name)
                 requestLocationUpdates()
@@ -115,11 +118,11 @@ class TrackingService : Service() {
                 Notifier.showAlarmNotification(
                     this,
                     getString(R.string.notif_alarm_near_title),
-                    getString(
-                        R.string.notif_alarm_near_text,
-                        com.personaldevelopment.commuterreminder.domain.ReminderSettings.formatRadiusKm(),
-                        dest.name
-                    )
+                getString(
+                    R.string.notif_alarm_near_text,
+                    ReminderSettings.formatRadiusKm(),
+                    dest.name
+                )
                 )
                 alarmActive = true
             }
@@ -174,14 +177,16 @@ class TrackingService : Service() {
         const val ACTION_STOP = "com.personaldevelopment.commuterreminder.action.STOP"
         const val ACTION_SNOOZE = "com.personaldevelopment.commuterreminder.action.SNOOZE"
         const val EXTRA_DESTINATION = "destination"
+        const val EXTRA_RADIUS_KM = "radius_km"
 
         private const val UPDATE_INTERVAL_MS = 5000L
         private const val MIN_UPDATE_DISTANCE_M = 50f
 
-        fun start(context: Context, destination: Station) {
+        fun start(context: Context, destination: Station, radiusKm: Double = ReminderSettings.ACTIVATION_RADIUS_KM) {
             val intent = Intent(context, TrackingService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_DESTINATION, destination)
+                putExtra(EXTRA_RADIUS_KM, radiusKm)
             }
             ContextCompat.startForegroundService(context, intent)
         }

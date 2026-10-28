@@ -3,6 +3,7 @@ package com.personaldevelopment.commuterreminder.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.personaldevelopment.commuterreminder.data.StationRepository
+import com.personaldevelopment.commuterreminder.domain.ReminderSettings
 import com.personaldevelopment.commuterreminder.domain.model.Station
 import com.personaldevelopment.commuterreminder.tracking.AppLocation
 import com.personaldevelopment.commuterreminder.tracking.LocationClient
@@ -17,7 +18,8 @@ data class RouteUiState(
     val destination: Station? = null,
     val isTracking: Boolean = false,
     val error: String? = null,
-    val currentLocation: AppLocation? = null
+    val currentLocation: AppLocation? = null,
+    val radiusKm: Double = ReminderSettings.DEFAULT_ACTIVATION_RADIUS_KM
 )
 
 class RouteViewModel(
@@ -79,6 +81,12 @@ class RouteViewModel(
 
     fun setTracking(isTracking: Boolean) {
         _uiState.value = _uiState.value.copy(isTracking = isTracking)
+    }
+
+    /** Terapkan radius aktivasi (km) hasil input user; service membaca nilainya saat start. */
+    fun setRadiusKm(km: Double) {
+        ReminderSettings.ACTIVATION_RADIUS_KM = km
+        _uiState.value = _uiState.value.copy(radiusKm = km)
     }
 
     /** Simpan koreksi koordinat satu stasiun lalu muat ulang daftar. */

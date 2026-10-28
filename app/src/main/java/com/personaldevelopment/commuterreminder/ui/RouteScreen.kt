@@ -58,6 +58,7 @@ fun RouteScreen(
     uiState: RouteUiState,
     onDestinationSelected: (Station) -> Unit,
     onUpdateStation: (Station, Double, Double) -> Unit,
+    onRadiusChange: (Double) -> Unit,
     onStartReminder: () -> Unit,
     onStopReminder: () -> Unit
 ) {
@@ -92,6 +93,8 @@ fun RouteScreen(
                 }
                 else -> {
                     DestinationCard(
+                        radiusKm = uiState.radiusKm,
+                        onRadiusChange = onRadiusChange,
                         destination = uiState.destination,
                         onPickDestination = { pickerVisible = true }
                     )
@@ -212,14 +215,50 @@ private fun MapSection(
 
 @Composable
 private fun DestinationCard(
+    radiusKm: Double,
+    onRadiusChange: (Double) -> Unit,
     destination: Station?,
     onPickDestination: () -> Unit
 ) {
+    var radiusText by remember(radiusKm) {
+        mutableStateOf(formatRadiusInput(radiusKm))
+    }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Radius",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.width(48.dp)
+                )
+                OutlinedTextField(
+                    value = radiusText,
+                    onValueChange = { input ->
+                        radiusText = input
+                        if (ReminderSettings.validateRadiusText(input) == null) {
+                            ReminderSettings.applyRadiusText(input)
+                            onRadiusChange(input.trim().replace(',', '.').toDouble())
+                        }
+                    },
+                    label = { Text(text = "Radius aktif alarm") },
+                    suffix = { Text(text = "km") },
+                    isError = ReminderSettings.validateRadiusText(radiusText) != null,
+                    supportingText = {
+                        ReminderSettings.validateRadiusText(radiusText)
+                            ?.let { msg -> Text(text = msg) }
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f)
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -249,6 +288,9 @@ private fun DestinationCard(
         }
     }
 }
+
+private fun formatRadiusInput(km: Double): String =
+    if (km == km.toLong().toDouble()) km.toLong().toString() else km.toString()
 
 @Composable
 private fun StationPickerDialog(
@@ -314,7 +356,8 @@ private fun StationPickerDialog(
                             selectedLine = line
                             query = ""
                             step = 2
-                        }
+                        },
+                        onSelectStation = onSelected
                     )
                     else -> StationList(
                         lineStations = lineStations,
@@ -345,9 +388,20 @@ private fun ColumnScope.LineList(
     stations: List<Station>,
     lines: List<String>,
     query: String,
-    onSelectLine: (String) -> Unit
+    onSelectLine: (String) -> Unit,
+    onSelectStation: (Station) -> Unit
 ) {
     val q = query.trim().lowercase()
+    val stationMatches = remember(stations, q) {
+        if (q.isEmpty()) {
+            emptyList()
+        } else {
+            stations.filter { it.name.lowercase().contains(q) }
+                .sortedWith(
+                    compareBy({ !it.name.lowercase().startsWith(q) }, { it.name.lowercase() })
+                )
+        }
+    }
     val filteredLines = remember(lines, stations, q) {
         if (q.isEmpty()) {
             lines
@@ -356,8 +410,7 @@ private fun ColumnScope.LineList(
                 val sample = stations.first { it.line == line }
                 sample.lineShortName.lowercase().contains(q) ||
                     sample.lineName.lowercase().contains(q) ||
-                    line.lowercase().contains(q) ||
-                    stations.any { it.line == line && it.name.lowercase().contains(q) }
+                    line.lowercase().contains(q)
             }
         }
     }
@@ -365,7 +418,24 @@ private fun ColumnScope.LineList(
     val others = filteredLines - RECOMMENDED_LINES.toSet()
 
     when {
-        filteredLines.isEmpty() -> EmptyResult(text = "Line tidak ditemukan")
+        filteredLines.isEmpty() && stationMatches.isEmpty() ->
+            EmptyResult(text = "Line atau stasiun tidak ditemukan")
+        q.isNotEmpty() -> {
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                if (stationMatches.isNotEmpty()) {
+                    item { SectionHeader(text = "Stasiun") }
+                    items(stationMatches) { station ->
+                        StationResultItem(station = station, onSelect = onSelectStation)
+                    }
+                }
+                if (filteredLines.isNotEmpty()) {
+                    item { SectionHeader(text = "Line") }
+                    items(filteredLines) { line ->
+                        LineItem(stations = stations, line = line, onSelectLine = onSelectLine)
+                    }
+                }
+            }
+        }
         q.isEmpty() && recommended.isNotEmpty() -> {
             SectionHeader(text = "Rekomendasi")
             LazyColumn(modifier = Modifier.weight(1f)) {
@@ -466,6 +536,31 @@ private fun ColumnScope.StationList(
                     StationItem(station = station, onSelect = onSelect, onEdit = onEdit)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StationResultItem(
+    station: Station,
+    onSelect: (Station) -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onSelect(station) }
+            .padding(vertical = 6.dp)
+    ) {
+        LineColorDot(line = station.line)
+        Column {
+            Text(text = station.name, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = station.lineShortName,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

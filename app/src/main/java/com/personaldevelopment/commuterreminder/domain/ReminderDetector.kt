@@ -4,7 +4,12 @@ import com.personaldevelopment.commuterreminder.domain.model.Station
 
 /** Satu-satunya sumber nilai radius reminder; semua UI & service membaca dari sini. */
 object ReminderSettings {
-    const val ACTIVATION_RADIUS_KM = 3.0
+    const val DEFAULT_ACTIVATION_RADIUS_KM = 3.0
+    const val MIN_ACTIVATION_RADIUS_KM = 0.5
+    const val MAX_ACTIVATION_RADIUS_KM = 10.0
+
+    @Volatile
+    var ACTIVATION_RADIUS_KM: Double = DEFAULT_ACTIVATION_RADIUS_KM
 
     fun formatRadiusKm(): String {
         val km = ACTIVATION_RADIUS_KM
@@ -13,6 +18,23 @@ object ReminderSettings {
             "$whole km"
         } else {
             "${(km * 1000).toInt()} m"
+        }
+    }
+
+    /** Null = valid. Terima koma atau titik sebagai pemisah desimal. */
+    fun validateRadiusText(text: String): String? {
+        val value = text.trim().replace(',', '.').toDoubleOrNull()
+            ?: return "Harus berupa angka, contoh: 3"
+        return when {
+            value < MIN_ACTIVATION_RADIUS_KM || value > MAX_ACTIVATION_RADIUS_KM ->
+                "Isi antara $MIN_ACTIVATION_RADIUS_KM dan $MAX_ACTIVATION_RADIUS_KM km"
+            else -> null
+        }
+    }
+
+    fun applyRadiusText(text: String) {
+        if (validateRadiusText(text) == null) {
+            ACTIVATION_RADIUS_KM = text.trim().replace(',', '.').toDouble()
         }
     }
 }

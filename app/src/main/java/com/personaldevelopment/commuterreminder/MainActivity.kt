@@ -18,18 +18,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.personaldevelopment.commuterreminder.data.StationRepository
 import com.personaldevelopment.commuterreminder.tracking.LocationClient
 import com.personaldevelopment.commuterreminder.tracking.TrackingService
+import com.personaldevelopment.commuterreminder.ui.AppSplashScreen
 import com.personaldevelopment.commuterreminder.ui.RouteScreen
 import com.personaldevelopment.commuterreminder.ui.RouteViewModel
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
@@ -80,23 +86,22 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    val viewModel: RouteViewModel = viewModel {
-                        RouteViewModel(
-                            repository = StationRepository.from(applicationContext),
-                            locationClient = { LocationClient.locationUpdates(applicationContext) }
+                    var showSplash by remember { mutableStateOf(true) }
+
+                    LaunchedEffect(Unit) {
+                        delay(SPLASH_DURATION_MS)
+                        showSplash = false
+                    }
+
+                    if (showSplash) {
+                        AppSplashScreen()
+                    } else {
+                        MainContent(
+                            onViewModelCreated = { viewModelInstance = it },
+                            onStartReminder = { handleStartReminder() },
+                            onStopReminder = { handleStopReminder() }
                         )
                     }
-                    viewModelInstance = viewModel
-
-                    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-                    RouteScreen(
-                        uiState = uiState,
-                        onDestinationSelected = viewModel::selectDestination,
-                        onUpdateStation = viewModel::updateStationCoordinates,
-                        onStartReminder = { handleStartReminder() },
-                        onStopReminder = { handleStopReminder() }
-                    )
                 }
             }
 
@@ -165,7 +170,7 @@ class MainActivity : ComponentActivity() {
             pendingStart = false
             return
         }
-        TrackingService.start(this, destination)
+        TrackingService.start(this, destination, viewModel.uiState.value.radiusKm)
         viewModel.setTracking(true)
         pendingStart = false
         showPermissionRationale = false
@@ -180,6 +185,37 @@ class MainActivity : ComponentActivity() {
     private fun appSettingsIntent(): Intent = Intent(
         Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
         Uri.fromParts("package", packageName, null)
+    )
+
+    private companion object {
+        const val SPLASH_DURATION_MS = 1500L
+    }
+}
+
+@Composable
+private fun MainContent(
+    onViewModelCreated: (RouteViewModel) -> Unit,
+    onStartReminder: () -> Unit,
+    onStopReminder: () -> Unit
+) {
+    val context = LocalContext.current.applicationContext
+    val viewModel: RouteViewModel = viewModel {
+        RouteViewModel(
+            repository = StationRepository.from(context),
+            locationClient = { LocationClient.locationUpdates(context) }
+        )
+    }
+    onViewModelCreated(viewModel)
+
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    RouteScreen(
+        uiState = uiState,
+        onDestinationSelected = viewModel::selectDestination,
+        onUpdateStation = viewModel::updateStationCoordinates,
+        onRadiusChange = viewModel::setRadiusKm,
+        onStartReminder = onStartReminder,
+        onStopReminder = onStopReminder
     )
 }
 
