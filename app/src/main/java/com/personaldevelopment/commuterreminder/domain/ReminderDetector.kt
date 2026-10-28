@@ -2,9 +2,24 @@ package com.personaldevelopment.commuterreminder.domain
 
 import com.personaldevelopment.commuterreminder.domain.model.Station
 
+/** Satu-satunya sumber nilai radius reminder; semua UI & service membaca dari sini. */
+object ReminderSettings {
+    const val ACTIVATION_RADIUS_KM = 3.0
+
+    fun formatRadiusKm(): String {
+        val km = ACTIVATION_RADIUS_KM
+        return if (km >= 1.0) {
+            val whole = if (km == km.toLong().toDouble()) km.toLong().toString() else "$km"
+            "$whole km"
+        } else {
+            "${(km * 1000).toInt()} m"
+        }
+    }
+}
+
 data class ReminderConfig(
     val destination: Station,
-    val activationRadiusKm: Double = 3.0
+    val activationRadiusKm: Double = ReminderSettings.ACTIVATION_RADIUS_KM
 )
 
 enum class ReminderEvent {

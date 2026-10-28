@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import com.personaldevelopment.commuterreminder.domain.ReminderSettings
 import com.personaldevelopment.commuterreminder.domain.model.Station
 import com.personaldevelopment.commuterreminder.ui.map.CoordinatePickerMap
 import com.personaldevelopment.commuterreminder.ui.map.StationMap
@@ -185,7 +186,8 @@ private fun MapSection(
 
             if (isTracking) {
                 Text(
-                    text = "Alarm berbunyi otomatis saat kamu berada dalam radius 3 km.",
+                    text = "Alarm berbunyi otomatis saat kamu berada dalam radius " +
+                        "${ReminderSettings.formatRadiusKm()}.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -238,7 +240,8 @@ private fun DestinationCard(
             if (destination != null) {
                 HorizontalDivider()
                 Text(
-                    text = "Reminder aktif otomatis saat radius 3 km.",
+                    text = "Reminder aktif otomatis saat radius " +
+                        "${ReminderSettings.formatRadiusKm()}.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

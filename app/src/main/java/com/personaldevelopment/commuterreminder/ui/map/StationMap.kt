@@ -111,8 +111,6 @@ fun StationMap(
     }
 }
 
-private const val RADIUS_KM = 3.0
-
 private fun buildCirclePoints(
     centerLat: Double,
     centerLon: Double,
@@ -159,9 +157,10 @@ private fun updateMap(
             overlays.add(line)
         }
 
-        // radius 3 km (lingkaran dibuat dari titik-titik poligon)
+        // lingkaran radius reminder (dibuat dari titik-titik poligon)
         val circlePoints = buildCirclePoints(
-            destination.latitude, destination.longitude, RADIUS_KM
+            destination.latitude, destination.longitude,
+            com.personaldevelopment.commuterreminder.domain.ReminderSettings.ACTIVATION_RADIUS_KM
         )
         val circle = Polyline(mapView).apply {
             setPoints(circlePoints + circlePoints.first())

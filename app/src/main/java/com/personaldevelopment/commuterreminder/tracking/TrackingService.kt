@@ -115,7 +115,11 @@ class TrackingService : Service() {
                 Notifier.showAlarmNotification(
                     this,
                     getString(R.string.notif_alarm_near_title),
-                    getString(R.string.notif_alarm_near_text, dest.name)
+                    getString(
+                        R.string.notif_alarm_near_text,
+                        com.personaldevelopment.commuterreminder.domain.ReminderSettings.formatRadiusKm(),
+                        dest.name
+                    )
                 )
                 alarmActive = true
             }
