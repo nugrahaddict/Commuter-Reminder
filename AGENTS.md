@@ -14,7 +14,7 @@ mendesati stasiun tujuan, khususnya saat tinggal 1 stasiun lagi sebelum tujuan.
 ## Teknologi
 - Bahasa: Kotlin (JVM target 17)
 - UI: Jetpack Compose + Material 3, single-activity
-- Min SDK 26, Target/Compile SDK 35
+- Min SDK 26, Target/Compile SDK 36 (lokal sudah terpasang; rencana awal 35 disesuaikan)
 - Arsitektur: MVVM + Repository, ViewModeel per layar
 - DI: manual (constructor injection) dulu, Hilt menyusul jika proyek membesar
 - Data stasiun: database lokal (Room) berisi nama stasiun + koordinat GPS (offline-first)
@@ -50,7 +50,7 @@ mendesati stasiun tujuan, khususnya saat tinggal 1 stasiun lagi sebelum tujuan.
 
 ## Status Proyek
 - [x] Berkas context (AGENTS.md)
-- [ ] Setup project Android (Gradle, struktur folder)
+- [x] Setup project Android (Gradle, struktur folder)
 - [ ] Data stasiun + model
 - [ ] UI pilih rute
 - [ ] Foreground service + tracking lokasi
