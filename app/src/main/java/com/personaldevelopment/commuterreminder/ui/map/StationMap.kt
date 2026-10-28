@@ -3,36 +3,42 @@ package com.personaldevelopment.commuterreminder.ui.map
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
-import com.personaldevelopment.commuterreminder.R
 import com.personaldevelopment.commuterreminder.domain.model.Station
 import com.personaldevelopment.commuterreminder.tracking.AppLocation
+import com.personaldevelopment.commuterreminder.tracking.LocationClient
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 @Composable
 fun StationMap(
     currentLocation: AppLocation?,
-    routeStations: List<Station>,
-    origin: Station?,
     destination: Station?,
-    modifier: Modifier = Modifier,
-    recenterTrigger: Int = 0,
-    focusBounds: List<Station> = emptyList()
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
 
@@ -41,85 +47,139 @@ fun StationMap(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
-            controller.setZoom(14.0)
+            controller.setZoom(12.0)
             controller.setCenter(GeoPoint(-6.2088, 106.8456))
         }
     }
 
+    val myLocationOverlay = remember {
+        MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply {
+            setDrawAccuracyEnabled(true)
+        }
+    }
+
     DisposableEffect(Unit) {
-        onDispose { mapView.onDetach() }
+        onDispose {
+            myLocationOverlay.disableMyLocation()
+            mapView.onDetach()
+        }
     }
 
     AndroidView(
-        factory = { view ->
-            updateMap(mapView, currentLocation, routeStations, origin, destination)
-            if (focusBounds.size >= 2) {
-                fitToStations(mapView, focusBounds)
-            }
+        factory = {
+            updateMap(mapView, currentLocation, destination, myLocationOverlay, context)
             mapView
         },
         update = { view ->
-            updateMap(view, currentLocation, routeStations, origin, destination)
-            if (focusBounds.size >= 2) {
-                fitToStations(view, focusBounds)
-            }
+            updateMap(view, currentLocation, destination, myLocationOverlay, context)
         },
         modifier = modifier
+            .fillMaxWidth()
+            .height(260.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(20.dp)
+            )
     )
 
-    LaunchedEffect(recenterTrigger) {
-        if (recenterTrigger > 0) {
-            currentLocation?.let { loc ->
+    var hasCentered by remember { mutableStateOf(false) }
+    LaunchedEffect(currentLocation, destination) {
+        val dest = destination
+        val loc = currentLocation
+        when {
+            dest != null && loc != null -> {
+                // kamera memuat posisi user + tujuan
+                val points = listOf(
+                    GeoPoint(loc.latitude, loc.longitude),
+                    GeoPoint(dest.latitude, dest.longitude)
+                )
+                mapView.zoomToBoundingBox(
+                    org.osmdroid.util.BoundingBox.fromGeoPoints(points).increaseByScale(1.4f),
+                    false
+                )
+                hasCentered = true
+            }
+            loc != null && !hasCentered -> {
+                // belum pilih tujuan: fokus ke posisi user
                 mapView.controller.animateTo(GeoPoint(loc.latitude, loc.longitude))
-                mapView.controller.setZoom(15.5)
+                mapView.controller.setZoom(14.0)
+                hasCentered = true
             }
         }
     }
 }
 
-private fun fitToStations(mapView: MapView, stations: List<Station>) {
-    val points = stations.map { GeoPoint(it.latitude, it.longitude) }
-    if (points.size < 2) return
-    val boundingBox = org.osmdroid.util.BoundingBox.fromGeoPoints(points)
-    mapView.zoomToBoundingBox(boundingBox.increaseByScale(1.35f), false)
+private const val RADIUS_KM = 3.0
+
+private fun buildCirclePoints(
+    centerLat: Double,
+    centerLon: Double,
+    radiusKm: Double
+): List<GeoPoint> {
+    val points = ArrayList<GeoPoint>(73)
+    val latOffset = radiusKm / 111.1
+    val lonOffset = radiusKm / (111.1 * kotlin.math.cos(Math.toRadians(centerLat)))
+    for (i in 0..71) {
+        val angle = Math.toRadians(i * 5.0)
+        points.add(
+            GeoPoint(
+                centerLat + latOffset * kotlin.math.sin(angle),
+                centerLon + lonOffset * kotlin.math.cos(angle)
+            )
+        )
+    }
+    return points
 }
 
 private fun updateMap(
     mapView: MapView,
     currentLocation: AppLocation?,
-    routeStations: List<Station>,
-    origin: Station?,
-    destination: Station?
+    destination: Station?,
+    myLocationOverlay: MyLocationNewOverlay,
+    context: android.content.Context
 ) {
-    android.util.Log.d("StationMap", "updateMap: stations=${routeStations.size}, origin=${origin?.name}, dest=${destination?.name}")
     val overlays = mapView.overlays
     overlays.clear()
 
-    routeStations.forEach { station ->
-        val marker = Marker(mapView).apply {
-            position = GeoPoint(station.latitude, station.longitude)
-            title = station.name
-            when (station.id) {
-                origin?.id -> setIconColored(mapView, Color(0xFF2E7D32))
-                destination?.id -> setIconColored(mapView, Color(0xFFC62828))
-                else -> setIconColored(mapView, Color(0xFF1565C0))
+    if (destination != null) {
+        // garis posisi -> tujuan
+        currentLocation?.let { loc ->
+            val line = Polyline(mapView).apply {
+                setPoints(
+                    listOf(
+                        GeoPoint(loc.latitude, loc.longitude),
+                        GeoPoint(destination.latitude, destination.longitude)
+                    )
+                )
+                outlinePaint.color = Color(0xFF1565C0).toArgb()
+                outlinePaint.strokeWidth = 6f
             }
+            overlays.add(line)
         }
-        overlays.add(marker)
+
+        // radius 3 km (lingkaran dibuat dari titik-titik poligon)
+        val circlePoints = buildCirclePoints(
+            destination.latitude, destination.longitude, RADIUS_KM
+        )
+        val circle = Polyline(mapView).apply {
+            setPoints(circlePoints + circlePoints.first())
+            outlinePaint.color = Color(0xFFC62828).toArgb()
+            outlinePaint.strokeWidth = 3f
+        }
+        overlays.add(circle)
+
+        // pin tujuan
+        val destMarker = Marker(mapView).apply {
+            position = GeoPoint(destination.latitude, destination.longitude)
+            title = destination.name
+            setIconColored(mapView, Color(0xFFC62828))
+        }
+        overlays.add(destMarker)
     }
 
-    if (routeStations.size >= 2) {
-        val line = Polyline(mapView).apply {
-            setPoints(
-                routeStations.sortedBy { it.orderIndex }
-                    .map { GeoPoint(it.latitude, it.longitude) }
-            )
-            outlinePaint.color = Color(0xFF1565C0).toArgb()
-            outlinePaint.strokeWidth = 8f
-        }
-        overlays.add(line)
-    }
-
+    // pin posisi saat ini
     currentLocation?.let { loc ->
         val meMarker = Marker(mapView).apply {
             position = GeoPoint(loc.latitude, loc.longitude)
@@ -127,6 +187,16 @@ private fun updateMap(
             setIconColored(mapView, Color(0xFFF9A825), isUser = true)
         }
         overlays.add(meMarker)
+    }
+
+    // titik lokasi realtime bawaan osmdroid (update otomatis mengikuti GPS)
+    if (LocationClient.hasPermission(context)) {
+        if (!myLocationOverlay.isMyLocationEnabled) {
+            myLocationOverlay.enableMyLocation()
+        }
+        overlays.add(myLocationOverlay)
+    } else {
+        myLocationOverlay.disableMyLocation()
     }
 
     mapView.invalidate()

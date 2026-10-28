@@ -26,6 +26,11 @@ class StationRepository(
     suspend fun getLines(): List<String> =
         getAll().map { it.line }.distinct().sorted()
 
+    /** Perbarui koordinat satu stasiun di database lokal. */
+    suspend fun updateCoordinates(id: String, latitude: Double, longitude: Double) {
+        dao.updateCoordinates(id = id, latitude = latitude, longitude = longitude)
+    }
+
     private fun StationEntity.toDomain() = Station(
         id = id,
         name = name,

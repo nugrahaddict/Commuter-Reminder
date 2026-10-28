@@ -11,6 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +21,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
             val anyGranted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
             if (anyGranted) {
+                viewModelInstance?.retryLocation()
                 requestNotificationPermissionThenStart()
             } else {
                 pendingStart = false
@@ -66,6 +67,7 @@ class MainActivity : ComponentActivity() {
     private val settingsLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (hasLocationPermission()) {
+                viewModelInstance?.retryLocation()
                 requestNotificationPermissionThenStart()
             } else {
                 showPermanentlyDenied = true
@@ -90,10 +92,10 @@ class MainActivity : ComponentActivity() {
 
                     RouteScreen(
                         uiState = uiState,
-                        onOriginSelected = viewModel::selectOrigin,
                         onDestinationSelected = viewModel::selectDestination,
-                        onStartJourney = { handleStartJourney() },
-                        onStopJourney = { handleStopJourney() }
+                        onUpdateStation = viewModel::updateStationCoordinates,
+                        onStartReminder = { handleStartReminder() },
+                        onStopReminder = { handleStopReminder() }
                     )
                 }
             }
@@ -126,10 +128,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun handleStartJourney() {
+    private fun handleStartReminder() {
         val viewModel = viewModelInstance ?: return
         val state = viewModel.uiState.value
-        if (state.origin == null || state.destination == null) return
+        if (state.destination == null) return
 
         pendingStart = true
         if (hasLocationPermission()) {
@@ -139,7 +141,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun handleStopJourney() {
+    private fun handleStopReminder() {
         TrackingService.stop(this)
         viewModelInstance?.setTracking(false)
     }
@@ -158,13 +160,12 @@ class MainActivity : ComponentActivity() {
     private fun startTrackingNow() {
         val viewModel = viewModelInstance ?: return
         val state = viewModel.uiState.value
-        val origin = state.origin
         val destination = state.destination
-        if (origin == null || destination == null) {
+        if (destination == null) {
             pendingStart = false
             return
         }
-        TrackingService.start(this, origin, destination, viewModel.stationsForRoute())
+        TrackingService.start(this, destination)
         viewModel.setTracking(true)
         pendingStart = false
         showPermissionRationale = false
@@ -192,7 +193,7 @@ private fun PermissionRationaleDialog(
         title = { Text(text = "Izin Lokasi Diperlukan") },
         text = {
             Text(
-                text = "Commuter Reminder butuh akses lokasi untuk mendeteksi posisi kereta " +
+                text = "Commuter Reminder butuh akses lokasi untuk memantau posisi kamu " +
                     "dan membangunkan kamu saat mendekati stasiun tujuan. " +
                     "Lokasi hanya diproses di perangkat, tidak dikirim ke server manapun."
             )
@@ -216,7 +217,7 @@ private fun PermanentlyDeniedDialog(
         title = { Text(text = "Izin Lokasi Ditolak Permanen") },
         text = {
             Text(
-                text = "Tanpa izin lokasi, aplikasi tidak bisa mendeteksi stasiun. " +
+                text = "Tanpa izin lokasi, aplikasi tidak bisa memantau posisi. " +
                     "Aktifkan izin lokasi di pengaturan aplikasi."
             )
         },

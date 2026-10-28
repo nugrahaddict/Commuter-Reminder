@@ -17,6 +17,12 @@ interface StationDao {
     @Query("SELECT COUNT(*) FROM stations")
     suspend fun count(): Int
 
+    @Query("SELECT * FROM stations WHERE id = :id")
+    suspend fun getById(id: String): StationEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(stations: List<StationEntity>)
+
+    @Query("UPDATE stations SET latitude = :latitude, longitude = :longitude WHERE id = :id")
+    suspend fun updateCoordinates(id: String, latitude: Double, longitude: Double)
 }

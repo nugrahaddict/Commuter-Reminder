@@ -3,6 +3,7 @@ package com.personaldevelopment.commuterreminder.alarm
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -11,6 +12,7 @@ import android.net.Uri
 import androidx.core.app.NotificationCompat
 import com.personaldevelopment.commuterreminder.MainActivity
 import com.personaldevelopment.commuterreminder.R
+import com.personaldevelopment.commuterreminder.tracking.TrackingService
 
 object Notifier {
 
@@ -18,6 +20,7 @@ object Notifier {
     const val CHANNEL_ALARM = "alarm"
     const val NOTIFICATION_ID_TRACKING = 1
     const val NOTIFICATION_ID_ALARM = 2
+    const val ACTION_ARRIVED = "com.personaldevelopment.commuterreminder.action.ARRIVED"
 
     fun createChannels(context: Context) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -77,6 +80,13 @@ object Notifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val arrivedIntent = PendingIntent.getBroadcast(
+            context,
+            1,
+            Intent(context, AlarmActionReceiver::class.java).apply { action = ACTION_ARRIVED },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ALARM)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
@@ -86,6 +96,11 @@ object Notifier {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(contentIntent, true)
             .setContentIntent(contentIntent)
+            .addAction(
+                0,
+                context.getString(R.string.notif_action_arrived),
+                arrivedIntent
+            )
             .setAutoCancel(true)
             .build()
         notifySafely(context, NOTIFICATION_ID_ALARM, notification)
@@ -102,6 +117,17 @@ object Notifier {
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.notify(id, notification)
         } catch (_: SecurityException) {
+        }
+    }
+}
+
+class AlarmActionReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        when (intent.action) {
+            Notifier.ACTION_ARRIVED -> {
+                // "Sampai Tujuan" diklik: matikan alarm dan hentikan semua proses background
+                TrackingService.stop(context)
+            }
         }
     }
 }

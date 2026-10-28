@@ -17,17 +17,16 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.personaldevelopment.commuterreminder.R
 import com.personaldevelopment.commuterreminder.alarm.Notifier
-import com.personaldevelopment.commuterreminder.domain.JourneyConfig
-import com.personaldevelopment.commuterreminder.domain.JourneyDetector
-import com.personaldevelopment.commuterreminder.domain.JourneyEvent
+import com.personaldevelopment.commuterreminder.domain.ReminderConfig
+import com.personaldevelopment.commuterreminder.domain.ReminderDetector
+import com.personaldevelopment.commuterreminder.domain.ReminderEvent
 import com.personaldevelopment.commuterreminder.domain.model.Station
 
 class TrackingService : Service() {
 
-    private var detector: JourneyDetector? = null
+    private var detector: ReminderDetector? = null
     private var destination: Station? = null
-    private var lastEvent: JourneyEvent = JourneyEvent.NONE
-    private var lastFiredAt: Long = 0
+    private var alarmActive = false
 
     private val fusedClient by lazy {
         LocationServices.getFusedLocationProviderClient(this)
@@ -47,20 +46,22 @@ class TrackingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                val origin = intent.getStationExtra(EXTRA_ORIGIN)
-                val dest = intent.getStationExtra(EXTRA_DESTINATION)
-                if (origin == null || dest == null) {
-                    stopSelf()
+                val dest = intent.getStationExtra(EXTRA_DESTINATION) ?: run {
+                    stopTracking()
                     return START_NOT_STICKY
                 }
-                val between = intent.getStationListExtra(EXTRA_STATIONS_BETWEEN)
                 destination = dest
-                detector = JourneyDetector(
-                    JourneyConfig(origin = origin, destination = dest, stationsBetween = between)
+                detector = ReminderDetector(
+                    ReminderConfig(destination = dest)
                 )
-                lastEvent = JourneyEvent.NONE
                 startAsForeground(dest.name)
                 requestLocationUpdates()
+            }
+            ACTION_SNOOZE -> {
+                // alarm dimatikan user, lanjutkan pantau sampai benar-benar sampai
+                Notifier.cancelAlarm(this)
+                alarmActive = false
+                detector?.acknowledgeReminder()
             }
             ACTION_STOP -> {
                 stopTracking()
@@ -103,62 +104,48 @@ class TrackingService : Service() {
         }
     }
 
-    private fun handleState(state: com.personaldevelopment.commuterreminder.domain.JourneyState) {
+    private fun handleState(state: com.personaldevelopment.commuterreminder.domain.ReminderState) {
         val dest = destination ?: return
-        val now = System.currentTimeMillis()
-        val canFireAgain = now - lastFiredAt > EVENT_COOLDOWN_MS
 
-        if (state.event == lastEvent && state.event != JourneyEvent.NONE) return
-        if (state.event == JourneyEvent.NONE) {
-            lastEvent = JourneyEvent.NONE
-            return
-        }
-        if (!canFireAgain) return
+        updateTrackingNotification(dest, state)
 
+        if (alarmActive && state.event == ReminderEvent.NONE) return
         when (state.event) {
-            JourneyEvent.APPROACHING_BEFORE_DESTINATION -> {
+            ReminderEvent.ENTERED_RADIUS -> {
                 Notifier.showAlarmNotification(
                     this,
-                    getString(R.string.notif_alarm_one_station),
-                    getString(
-                        R.string.notif_alarm_one_station_text,
-                        state.nextStation?.name ?: "",
-                        dest.name
-                    )
+                    getString(R.string.notif_alarm_near_title),
+                    getString(R.string.notif_alarm_near_text, dest.name)
                 )
-                lastFiredAt = now
+                alarmActive = true
             }
-            JourneyEvent.ARRIVING_AT_DESTINATION -> {
+            ReminderEvent.ARRIVED_AT_DESTINATION -> {
                 Notifier.showAlarmNotification(
                     this,
                     getString(R.string.notif_alarm_arriving),
                     getString(R.string.notif_alarm_arriving_text, dest.name)
                 )
-                lastFiredAt = now
+                alarmActive = true
             }
-            JourneyEvent.PASSED_DESTINATION -> {
-                Notifier.showAlarmNotification(
-                    this,
-                    getString(R.string.notif_alarm_passed),
-                    getString(R.string.notif_alarm_passed_text, dest.name)
-                )
-                lastFiredAt = now
-            }
-            JourneyEvent.NONE -> Unit
+            ReminderEvent.NONE -> Unit
         }
-        lastEvent = state.event
-        updateTrackingDistance(dest, state)
     }
 
-    private fun updateTrackingDistance(dest: Station, state: com.personaldevelopment.commuterreminder.domain.JourneyState) {
-        val distance = state.distanceToNextStationMeters
-        val text = if (distance > 0) {
-            getString(R.string.notif_tracking_distance, dest.name, distance)
+    private fun updateTrackingNotification(
+        dest: Station,
+        state: com.personaldevelopment.commuterreminder.domain.ReminderState
+    ) {
+        val distance = state.distanceToDestinationKm
+        val text = if (distance != Double.MAX_VALUE && distance > 0) {
+            getString(R.string.notif_tracking_distance, dest.name, formatDistance(distance))
         } else {
             getString(R.string.notif_tracking_text, dest.name)
         }
         Notifier.showTrackingNotification(this, text)
     }
+
+    private fun formatDistance(km: Double): String =
+        if (km >= 1.0) "${kotlin.math.ceil(km).toInt()} km" else "${(km * 1000).toInt()} m"
 
     private fun stopTracking() {
         fusedClient.removeLocationUpdates(locationCallback)
@@ -181,20 +168,16 @@ class TrackingService : Service() {
     companion object {
         const val ACTION_START = "com.personaldevelopment.commuterreminder.action.START"
         const val ACTION_STOP = "com.personaldevelopment.commuterreminder.action.STOP"
-        const val EXTRA_ORIGIN = "origin"
+        const val ACTION_SNOOZE = "com.personaldevelopment.commuterreminder.action.SNOOZE"
         const val EXTRA_DESTINATION = "destination"
-        const val EXTRA_STATIONS_BETWEEN = "stations_between"
 
         private const val UPDATE_INTERVAL_MS = 5000L
         private const val MIN_UPDATE_DISTANCE_M = 50f
-        private const val EVENT_COOLDOWN_MS = 60_000L
 
-        fun start(context: Context, origin: Station, destination: Station, between: List<Station>) {
+        fun start(context: Context, destination: Station) {
             val intent = Intent(context, TrackingService::class.java).apply {
                 action = ACTION_START
-                putExtra(EXTRA_ORIGIN, origin)
                 putExtra(EXTRA_DESTINATION, destination)
-                putExtra(EXTRA_STATIONS_BETWEEN, ArrayList(between))
             }
             ContextCompat.startForegroundService(context, intent)
         }
@@ -202,6 +185,13 @@ class TrackingService : Service() {
         fun stop(context: Context) {
             val intent = Intent(context, TrackingService::class.java).apply {
                 action = ACTION_STOP
+            }
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        fun snooze(context: Context) {
+            val intent = Intent(context, TrackingService::class.java).apply {
+                action = ACTION_SNOOZE
             }
             ContextCompat.startForegroundService(context, intent)
         }
@@ -217,15 +207,4 @@ private fun Intent.getStationExtra(key: String): Station? {
         extras?.getSerializable(key) as? Station
     }
     return value
-}
-
-private fun Intent.getStationListExtra(key: String): List<Station> {
-    val value = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-        @Suppress("UNCHECKED_CAST")
-        extras?.getSerializable(key) as? ArrayList<Station>
-    } else {
-        @Suppress("DEPRECATION")
-        extras?.getSerializable(key) as? ArrayList<Station>
-    }
-    return value ?: emptyList()
 }

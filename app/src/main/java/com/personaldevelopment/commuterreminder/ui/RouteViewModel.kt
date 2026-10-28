@@ -13,9 +13,7 @@ import kotlinx.coroutines.launch
 
 data class RouteUiState(
     val isLoading: Boolean = true,
-    val lines: List<String> = emptyList(),
     val stations: List<Station> = emptyList(),
-    val origin: Station? = null,
     val destination: Station? = null,
     val isTracking: Boolean = false,
     val error: String? = null,
@@ -30,13 +28,16 @@ class RouteViewModel(
     private val _uiState = MutableStateFlow(RouteUiState())
     val uiState: StateFlow<RouteUiState> = _uiState.asStateFlow()
 
+    private var locationJob: kotlinx.coroutines.Job? = null
+
     init {
         load()
         observeLocation()
     }
 
     private fun observeLocation() {
-        viewModelScope.launch {
+        if (locationJob?.isActive == true) return
+        locationJob = viewModelScope.launch {
             try {
                 locationClient.updates().collect { location ->
                     _uiState.value = _uiState.value.copy(currentLocation = location)
@@ -49,6 +50,11 @@ class RouteViewModel(
         }
     }
 
+    /** Dipanggil ulang setelah izin lokasi disetujui agar pin posisi muncul. */
+    fun retryLocation() {
+        observeLocation()
+    }
+
     fun load() {
         viewModelScope.launch {
             try {
@@ -56,7 +62,6 @@ class RouteViewModel(
                 val stations = repository.getAll()
                 _uiState.value = RouteUiState(
                     isLoading = false,
-                    lines = stations.map { it.line }.distinct().sorted(),
                     stations = stations
                 )
             } catch (e: Exception) {
@@ -68,41 +73,36 @@ class RouteViewModel(
         }
     }
 
-    fun selectOrigin(station: Station) {
-        _uiState.value = _uiState.value.copy(origin = station)
-        validateSelection()
-    }
-
     fun selectDestination(station: Station) {
-        _uiState.value = _uiState.value.copy(destination = station)
-        validateSelection()
+        _uiState.value = _uiState.value.copy(destination = station, error = null)
     }
 
     fun setTracking(isTracking: Boolean) {
         _uiState.value = _uiState.value.copy(isTracking = isTracking)
     }
 
-    private fun validateSelection() {
-        val state = _uiState.value
-        val origin = state.origin
-        val destination = state.destination
-        if (origin != null && destination != null &&
-            origin.id == destination.id
-        ) {
-            _uiState.value = state.copy(error = "Stasiun keberangkatan dan tujuan tidak boleh sama")
-        } else {
-            _uiState.value = state.copy(error = null)
-        }
-    }
-
-    fun stationsForRoute(): List<Station> {
-        val state = _uiState.value
-        val origin = state.origin ?: return emptyList()
-        val destination = state.destination ?: return emptyList()
-        return state.stations.filter {
-            it.line == origin.line &&
-                it.orderIndex >= minOf(origin.orderIndex, destination.orderIndex) &&
-                it.orderIndex <= maxOf(origin.orderIndex, destination.orderIndex)
+    /** Simpan koreksi koordinat satu stasiun lalu muat ulang daftar. */
+    fun updateStationCoordinates(station: Station, latitude: Double, longitude: Double) {
+        viewModelScope.launch {
+            try {
+                repository.updateCoordinates(station.id, latitude, longitude)
+                val stations = repository.getAll()
+                _uiState.value = _uiState.value.copy(
+                    stations = stations,
+                    // refresh stasiun tujuan jika yang diedit sedang jadi tujuan
+                    destination = _uiState.value.destination?.let { dest ->
+                        if (dest.id == station.id) {
+                            stations.firstOrNull { it.id == station.id } ?: dest
+                        } else {
+                            dest
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Gagal menyimpan koordinat: ${e.message}"
+                )
+            }
         }
     }
 }

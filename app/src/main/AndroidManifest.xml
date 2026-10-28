@@ -36,6 +36,10 @@
             android:name=".tracking.TrackingService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".alarm.AlarmActionReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>
