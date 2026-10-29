@@ -24,7 +24,8 @@ data class RouteUiState(
 
 class RouteViewModel(
     private val repository: StationRepository,
-    private val locationClient: LocationClientSource
+    private val locationClient: LocationClientSource,
+    private val appContext: android.content.Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RouteUiState())
@@ -33,6 +34,9 @@ class RouteViewModel(
     private var locationJob: kotlinx.coroutines.Job? = null
 
     init {
+        // radius tersimpan (persistensi) jadi nilai awal UI
+        com.personaldevelopment.commuterreminder.data.RadiusSettingsStore.applySaved(appContext)
+        _uiState.value = _uiState.value.copy(radiusKm = ReminderSettings.ACTIVATION_RADIUS_KM)
         load()
         observeLocation()
     }
@@ -84,8 +88,12 @@ class RouteViewModel(
     }
 
     /** Terapkan radius aktivasi (km) hasil input user; service membaca nilainya saat start. */
+    /** Terapkan radius aktivasi (km) hasil input user, simpan ke SharedPreferences. */
     fun setRadiusKm(km: Double) {
         ReminderSettings.ACTIVATION_RADIUS_KM = km
+        viewModelScope.launch {
+            com.personaldevelopment.commuterreminder.data.RadiusSettingsStore.save(appContext, km)
+        }
         _uiState.value = _uiState.value.copy(radiusKm = km)
     }
 

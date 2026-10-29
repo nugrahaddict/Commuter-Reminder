@@ -15,4 +15,24 @@
     <string name="notif_alarm_arriving">Sampai tujuan!</string>
     <string name="notif_alarm_arriving_text">Kamu tiba di %1$s.</string>
     <string name="notif_action_arrived">Sampai Tujuan</string>
+
+    <!-- Navigasi & Pengaturan -->
+    <string name="nav_back">Kembali</string>
+    <string name="nav_open_menu">Buka menu</string>
+    <string name="nav_home">Beranda</string>
+    <string name="nav_settings">Pengaturan</string>
+    <string name="settings_title">Pengaturan</string>
+    <string name="settings_section_general">Umum</string>
+    <string name="settings_section_alarm">Alarm</string>
+    <string name="settings_update_station">Update lokasi stasiun</string>
+    <string name="settings_update_station_desc">Perbaiki koordinat stasiun lewat peta atau input manual</string>
+    <string name="settings_alarm_ringtone">Pilih ringtone alarm</string>
+    <string name="settings_ringtone_default">Bawaan sistem (alarm default perangkat)</string>
+    <string name="settings_ringtone_custom">Audio pilihan sendiri</string>
+    <string name="settings_ringtone_reset">Kembalikan ke bawaan</string>
+    <string name="settings_ringtone_hint">Audio yang dipilih akan dipakai sebagai suara alarm saat mendekati stasiun tujuan.</string>
+    <string name="settings_ringtone_reset_title">Kembalikan ringtone?</string>
+    <string name="settings_ringtone_reset_text">Alarm akan kembali memakai ringtone alarm bawaan perangkat.</string>
+    <string name="settings_ringtone_reset_confirm">Kembalikan</string>
+    <string name="cancel">Batal</string>
 </resources>

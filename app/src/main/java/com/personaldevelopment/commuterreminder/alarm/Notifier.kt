@@ -34,11 +34,23 @@ object Notifier {
             setSound(null, null)
         }
 
-        val alarmSound: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        // sound channel tidak bisa diubah setelah dibuat: kalau user ganti ringtone,
+        // channel lama dihapus dan dibuat ulang dengan id ber versi
+        val alarmStore = com.personaldevelopment.commuterreminder.data.AlarmSoundStore
+        val version = alarmStore.channelVersion(context)
+        val alarmChannelId = if (version == 0) CHANNEL_ALARM else "${CHANNEL_ALARM}_v$version"
+        // bersihkan channel alarm lama (id dasar + versi sebelumnya)
+        manager.deleteNotificationChannel(CHANNEL_ALARM)
+        for (v in 1 until version) {
+            manager.deleteNotificationChannel("${CHANNEL_ALARM}_v$v")
+        }
+        val customSound = alarmStore.soundUri(context)
+        val alarmSound: Uri = customSound
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
         val alarmChannel = NotificationChannel(
-            CHANNEL_ALARM,
+            alarmChannelId,
             context.getString(R.string.channel_alarm_name),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
@@ -57,6 +69,13 @@ object Notifier {
 
         manager.createNotificationChannel(trackingChannel)
         manager.createNotificationChannel(alarmChannel)
+    }
+
+    /** Id channel alarm yang sedang aktif (ikut versi ringtone). */
+    fun alarmChannelId(context: Context): String {
+        val version = com.personaldevelopment.commuterreminder.data.AlarmSoundStore
+            .channelVersion(context)
+        return if (version == 0) CHANNEL_ALARM else "${CHANNEL_ALARM}_v$version"
     }
 
     fun showTrackingNotification(context: Context, text: String) {
@@ -87,7 +106,7 @@ object Notifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ALARM)
+        val notification = NotificationCompat.Builder(context, alarmChannelId(context))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)

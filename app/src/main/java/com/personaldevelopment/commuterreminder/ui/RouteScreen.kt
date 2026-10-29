@@ -18,8 +18,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -29,6 +31,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -46,28 +50,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.personaldevelopment.commuterreminder.domain.ReminderSettings
 import com.personaldevelopment.commuterreminder.domain.model.Station
-import com.personaldevelopment.commuterreminder.ui.map.CoordinatePickerMap
+import com.personaldevelopment.commuterreminder.ui.settings.AppSection
 import com.personaldevelopment.commuterreminder.ui.map.StationMap
+import com.personaldevelopment.commuterreminder.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteScreen(
     uiState: RouteUiState,
     onDestinationSelected: (Station) -> Unit,
-    onUpdateStation: (Station, Double, Double) -> Unit,
     onRadiusChange: (Double) -> Unit,
     onStartReminder: () -> Unit,
-    onStopReminder: () -> Unit
+    onStopReminder: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     var pickerVisible by remember { mutableStateOf(false) }
-    var editingStation by remember { mutableStateOf<Station?>(null) }
+    var drawerVisible by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(text = "Commuter Reminder") })
+            TopAppBar(
+                title = { Text(text = "Commuter Reminder") },
+                navigationIcon = {
+                    IconButton(onClick = { drawerVisible = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.Menu,
+                            contentDescription = stringResource(R.string.nav_open_menu)
+                        )
+                    }
+                }
+            )
         }
     ) { padding ->
         Column(
@@ -112,6 +128,20 @@ fun RouteScreen(
         }
     }
 
+    if (drawerVisible) {
+        AppDrawer(
+            currentSection = AppSection.HOME,
+            onNavigate = { section ->
+                drawerVisible = false
+                when (section) {
+                    AppSection.SETTINGS -> onOpenSettings()
+                    else -> Unit
+                }
+            },
+            onDismiss = { drawerVisible = false }
+        )
+    }
+
     if (pickerVisible) {
         StationPickerDialog(
             title = "Pilih Stasiun Tujuan",
@@ -120,21 +150,57 @@ fun RouteScreen(
             onSelected = { station ->
                 onDestinationSelected(station)
                 pickerVisible = false
-            },
-            onEditStation = { station -> editingStation = station }
-        )
-    }
-
-    editingStation?.let { station ->
-        EditStationDialog(
-            station = station,
-            onDismiss = { editingStation = null },
-            onSave = { lat, lon ->
-                onUpdateStation(station, lat, lon)
-                editingStation = null
             }
         )
     }
+}
+
+@Composable
+private fun AppDrawer(
+    currentSection: AppSection,
+    onNavigate: (AppSection) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalDrawerSheet {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "Commuter Reminder",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            DrawerNavItem(
+                label = stringResource(R.string.nav_home),
+                icon = Icons.Filled.Home,
+                selected = currentSection == AppSection.HOME,
+                onClick = { onNavigate(AppSection.HOME) }
+            )
+            DrawerNavItem(
+                label = stringResource(R.string.nav_settings),
+                icon = Icons.Filled.Settings,
+                selected = currentSection == AppSection.SETTINGS,
+                onClick = { onNavigate(AppSection.SETTINGS) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun DrawerNavItem(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    NavigationDrawerItem(
+        label = { Text(text = label) },
+        icon = { Icon(imageVector = icon, contentDescription = null) },
+        selected = selected,
+        onClick = onClick
+    )
 }
 
 @Composable
@@ -297,8 +363,7 @@ private fun StationPickerDialog(
     title: String,
     stations: List<Station>,
     onDismiss: () -> Unit,
-    onSelected: (Station) -> Unit,
-    onEditStation: (Station) -> Unit
+    onSelected: (Station) -> Unit
 ) {
     var step by remember { mutableStateOf(1) }
     var selectedLine by remember { mutableStateOf<String?>(null) }
@@ -362,8 +427,7 @@ private fun StationPickerDialog(
                     else -> StationList(
                         lineStations = lineStations,
                         query = query,
-                        onSelect = onSelected,
-                        onEdit = onEditStation
+                        onSelect = onSelected
                     )
                 }
             }
@@ -497,8 +561,7 @@ private fun LineItem(
 private fun ColumnScope.StationList(
     lineStations: List<Station>,
     query: String,
-    onSelect: (Station) -> Unit,
-    onEdit: (Station) -> Unit
+    onSelect: (Station) -> Unit
 ) {
     val q = query.trim().lowercase()
     val filtered = remember(lineStations, q) {
@@ -522,18 +585,18 @@ private fun ColumnScope.StationList(
             SectionHeader(text = "Rekomendasi")
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(recommended) { station ->
-                    StationItem(station = station, onSelect = onSelect, onEdit = onEdit)
+                    StationItem(station = station, onSelect = onSelect)
                 }
                 item { SectionHeader(text = "Semua Stasiun") }
                 items(filtered - recommended.toSet()) { station ->
-                    StationItem(station = station, onSelect = onSelect, onEdit = onEdit)
+                    StationItem(station = station, onSelect = onSelect)
                 }
             }
         }
         else -> {
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(filtered) { station ->
-                    StationItem(station = station, onSelect = onSelect, onEdit = onEdit)
+                    StationItem(station = station, onSelect = onSelect)
                 }
             }
         }
@@ -568,8 +631,7 @@ private fun StationResultItem(
 @Composable
 private fun StationItem(
     station: Station,
-    onSelect: (Station) -> Unit,
-    onEdit: (Station) -> Unit
+    onSelect: (Station) -> Unit
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -587,125 +649,6 @@ private fun StationItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        IconButton(onClick = { onEdit(station) }) {
-            Icon(
-                imageVector = Icons.Filled.Edit,
-                contentDescription = "Edit koordinat ${station.name}",
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-}
-
-@Composable
-private fun EditStationDialog(
-    station: Station,
-    onDismiss: () -> Unit,
-    onSave: (latitude: Double, longitude: Double) -> Unit
-) {
-    var latText by remember { mutableStateOf("%.7f".format(station.latitude)) }
-    var lonText by remember { mutableStateOf("%.7f".format(station.longitude)) }
-    var latError by remember { mutableStateOf<String?>(null) }
-    var lonError by remember { mutableStateOf<String?>(null) }
-
-    // koordinat hasil long-press di peta; null = belum dipilih
-    var pickedLat by remember { mutableStateOf<Double?>(null) }
-    var pickedLon by remember { mutableStateOf<Double?>(null) }
-
-    fun applyPicked(lat: Double, lon: Double) {
-        pickedLat = lat
-        pickedLon = lon
-        latText = "%.7f".format(lat)
-        lonText = "%.7f".format(lon)
-        latError = validateCoord(latText, min = -7.5, max = -5.5)
-        lonError = validateCoord(lonText, min = 105.5, max = 107.5)
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "Edit Koordinat") },
-        text = {
-            Column(
-                modifier = Modifier.height(460.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Column {
-                    Text(
-                        text = station.name,
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    Text(
-                        text = station.lineShortName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                CoordinatePickerMap(
-                    station = station,
-                    pickedLat = pickedLat,
-                    pickedLon = pickedLon,
-                    onPick = { lat, lon -> applyPicked(lat, lon) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = latText,
-                    onValueChange = {
-                        latText = it
-                        latError = validateCoord(it, min = -7.5, max = -5.5)
-                    },
-                    label = { Text(text = "Latitude") },
-                    isError = latError != null,
-                    supportingText = { latError?.let { msg -> Text(text = msg) } },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = lonText,
-                    onValueChange = {
-                        lonText = it
-                        lonError = validateCoord(it, min = 105.5, max = 107.5)
-                    },
-                    label = { Text(text = "Longitude") },
-                    isError = lonError != null,
-                    supportingText = { lonError?.let { msg -> Text(text = msg) } },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val lat = latText.replace(',', '.').toDoubleOrNull()
-                    val lon = lonText.replace(',', '.').toDoubleOrNull()
-                    val latOk = lat != null && validateCoord(latText, -7.5, -5.5) == null
-                    val lonOk = lon != null && validateCoord(lonText, 105.5, 107.5) == null
-                    if (latOk && lonOk && lat != null && lon != null) {
-                        onSave(lat, lon)
-                    }
-                },
-                enabled = latError == null && lonError == null
-            ) {
-                Text(text = "Simpan")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text(text = "Batal") }
-        }
-    )
-}
-
-/** Null = valid. Cek angka dan rentang koordinat Jabodetabek. */
-private fun validateCoord(text: String, min: Double, max: Double): String? {
-    val value = text.replace(',', '.').toDoubleOrNull()
-        ?: return "Harus berupa angka, contoh: -6.2099000"
-    return when {
-        value < min || value > max -> "Di luar rentang wajar ($min s/d $max)"
-        else -> null
     }
 }
 
@@ -736,7 +679,7 @@ private fun EmptyResult(text: String) {
 }
 
 @Composable
-private fun LineColorDot(line: String) {
+internal fun LineColorDot(line: String) {
     val color = when (line) {
         "BOGOR" -> Color(0xFFC62828)
         "NAMBO" -> Color(0xFFE57373)

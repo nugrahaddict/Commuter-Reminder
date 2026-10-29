@@ -30,11 +30,15 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.personaldevelopment.commuterreminder.data.StationRepository
+import com.personaldevelopment.commuterreminder.data.RadiusSettingsStore
 import com.personaldevelopment.commuterreminder.tracking.LocationClient
 import com.personaldevelopment.commuterreminder.tracking.TrackingService
 import com.personaldevelopment.commuterreminder.ui.AppSplashScreen
 import com.personaldevelopment.commuterreminder.ui.RouteScreen
 import com.personaldevelopment.commuterreminder.ui.RouteViewModel
+import com.personaldevelopment.commuterreminder.ui.settings.AppSection
+import com.personaldevelopment.commuterreminder.ui.settings.SettingsScreen
+import com.personaldevelopment.commuterreminder.ui.settings.StationEditorScreen
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
@@ -81,6 +85,7 @@ class MainActivity : ComponentActivity() {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        RadiusSettingsStore.applySaved(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
@@ -101,8 +106,7 @@ class MainActivity : ComponentActivity() {
                             onStartReminder = { handleStartReminder() },
                             onStopReminder = { handleStopReminder() }
                         )
-                    }
-                }
+                    }                }
             }
 
             if (showPermissionRationale) {
@@ -202,21 +206,35 @@ private fun MainContent(
     val viewModel: RouteViewModel = viewModel {
         RouteViewModel(
             repository = StationRepository.from(context),
-            locationClient = { LocationClient.locationUpdates(context) }
+            locationClient = { LocationClient.locationUpdates(context) },
+            appContext = context
         )
     }
     onViewModelCreated(viewModel)
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var section by remember { mutableStateOf(AppSection.HOME) }
 
-    RouteScreen(
-        uiState = uiState,
-        onDestinationSelected = viewModel::selectDestination,
-        onUpdateStation = viewModel::updateStationCoordinates,
-        onRadiusChange = viewModel::setRadiusKm,
-        onStartReminder = onStartReminder,
-        onStopReminder = onStopReminder
-    )
+    when (section) {
+        AppSection.HOME -> RouteScreen(
+            uiState = uiState,
+            onDestinationSelected = viewModel::selectDestination,
+            onRadiusChange = viewModel::setRadiusKm,
+            onStartReminder = onStartReminder,
+            onStopReminder = onStopReminder,
+            onOpenSettings = { section = AppSection.SETTINGS }
+        )
+        AppSection.SETTINGS -> SettingsScreen(
+            onBack = { section = AppSection.HOME },
+            onOpenStationEditor = { section = AppSection.STATION_EDITOR }
+        )
+        AppSection.STATION_EDITOR -> StationEditorScreen(
+            stations = uiState.stations,
+            isLoading = uiState.isLoading,
+            onBack = { section = AppSection.SETTINGS },
+            onUpdateStation = viewModel::updateStationCoordinates
+        )
+    }
 }
 
 @androidx.compose.runtime.Composable
