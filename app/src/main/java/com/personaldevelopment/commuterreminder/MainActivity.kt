@@ -36,6 +36,8 @@ import com.personaldevelopment.commuterreminder.tracking.TrackingService
 import com.personaldevelopment.commuterreminder.ui.AppSplashScreen
 import com.personaldevelopment.commuterreminder.ui.RouteScreen
 import com.personaldevelopment.commuterreminder.ui.RouteViewModel
+import com.personaldevelopment.commuterreminder.ui.customlocation.CustomLocationScreen
+import com.personaldevelopment.commuterreminder.ui.customlocation.CustomLocationViewModel
 import com.personaldevelopment.commuterreminder.ui.settings.AppSection
 import com.personaldevelopment.commuterreminder.ui.settings.SettingsScreen
 import com.personaldevelopment.commuterreminder.ui.settings.StationEditorScreen
@@ -48,6 +50,10 @@ class MainActivity : ComponentActivity() {
     private var showPermissionRationale by mutableStateOf(false)
     private var showPermanentlyDenied by mutableStateOf(false)
     private var pendingStart by mutableStateOf(false)
+    private var showCustomLocation by mutableStateOf(false)
+    private var pendingStartCustom by mutableStateOf(false)
+    private var customTracking by mutableStateOf(false)
+    private var customLocationViewModelInstance: CustomLocationViewModel? = null
 
     private val locationPermissions = arrayOf(
         Manifest.permission.ACCESS_FINE_LOCATION,
@@ -71,7 +77,11 @@ class MainActivity : ComponentActivity() {
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-            startTrackingNow()
+            if (pendingStartCustom) {
+                startCustomTrackingNow()
+            } else {
+                startTrackingNow()
+            }
         }
 
     private val settingsLauncher =
@@ -104,9 +114,20 @@ class MainActivity : ComponentActivity() {
                         MainContent(
                             onViewModelCreated = { viewModelInstance = it },
                             onStartReminder = { handleStartReminder() },
-                            onStopReminder = { handleStopReminder() }
+                            onStopReminder = { handleStopReminder() },
+                            onOpenCustomLocation = { showCustomLocation = true }
                         )
                     }                }
+            }
+
+            if (showCustomLocation) {
+                CustomLocationScreen(
+                    onBack = { showCustomLocation = false },
+                    onStartReminder = { handleStartCustomReminder() },
+                    isTracking = customTracking,
+                    onStopReminder = { handleStopCustomReminder() },
+                    onViewModelCreated = { customLocationViewModelInstance = it }
+                )
             }
 
             if (showPermissionRationale) {
@@ -155,6 +176,35 @@ class MainActivity : ComponentActivity() {
         viewModelInstance?.setTracking(false)
     }
 
+    private fun handleStartCustomReminder() {
+        val customViewModel = customLocationViewModelInstance
+        if (customViewModel?.currentSelection() == null) return
+
+        pendingStartCustom = true
+        if (hasLocationPermission()) {
+            requestNotificationPermissionThenStart()
+        } else {
+            showPermissionRationale = true
+        }
+    }
+
+    private fun handleStopCustomReminder() {
+        TrackingService.stop(this)
+        customTracking = false
+    }
+
+    private fun startCustomTrackingNow() {
+        val target = customLocationViewModelInstance?.currentSelection()
+        if (target == null) {
+            pendingStartCustom = false
+            return
+        }
+        TrackingService.startCustom(this, target)
+        customTracking = true
+        pendingStartCustom = false
+        showPermissionRationale = false
+    }
+
     private fun requestNotificationPermissionThenStart() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
@@ -167,6 +217,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startTrackingNow() {
+        if (pendingStartCustom) {
+            startCustomTrackingNow()
+            return
+        }
         val viewModel = viewModelInstance ?: return
         val state = viewModel.uiState.value
         val destination = state.destination
@@ -200,7 +254,8 @@ class MainActivity : ComponentActivity() {
 private fun MainContent(
     onViewModelCreated: (RouteViewModel) -> Unit,
     onStartReminder: () -> Unit,
-    onStopReminder: () -> Unit
+    onStopReminder: () -> Unit,
+    onOpenCustomLocation: () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
     val viewModel: RouteViewModel = viewModel {
@@ -222,7 +277,10 @@ private fun MainContent(
             onRadiusChange = viewModel::setRadiusKm,
             onStartReminder = onStartReminder,
             onStopReminder = onStopReminder,
-            onOpenSettings = { section = AppSection.SETTINGS }
+            onOpenSettings = { section = AppSection.SETTINGS },
+            onOpenCustomLocation = onOpenCustomLocation,
+            onRouteHistorySelected = viewModel::selectRouteHistory,
+            onRouteHistoryRemoved = viewModel::removeRouteHistory
         )
         AppSection.SETTINGS -> SettingsScreen(
             onBack = { section = AppSection.HOME },
@@ -234,6 +292,7 @@ private fun MainContent(
             onBack = { section = AppSection.SETTINGS },
             onUpdateStation = viewModel::updateStationCoordinates
         )
+        AppSection.CUSTOM_LOCATION -> Unit
     }
 }
 

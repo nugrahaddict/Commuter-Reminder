@@ -37,6 +37,10 @@ object ReminderSettings {
             ACTIVATION_RADIUS_KM = text.trim().replace(',', '.').toDouble()
         }
     }
+
+    /** Format radius km untuk isi TextField input (angka polos, tanpa satuan). */
+    fun formatRadiusInput(km: Double): String =
+        if (km == km.toLong().toDouble()) km.toLong().toString() else km.toString()
 }
 
 data class ReminderConfig(

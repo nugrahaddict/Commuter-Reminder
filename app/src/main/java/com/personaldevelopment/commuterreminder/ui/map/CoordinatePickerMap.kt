@@ -42,7 +42,8 @@ private val MAP_CORNER = 16.dp
 
 /**
  * Peta untuk memilih koordinat: tekan lama pada satu titik untuk memindahkan
- * pin; hasilnya dikirim lewat [onPick].
+ * pin; hasilnya dikirim lewat [onPick]. Ketika [focusTarget] berubah (mis.
+ * hasil pencarian alamat), kamera peta dianimasikan ke titik tersebut.
  */
 @Composable
 fun CoordinatePickerMap(
@@ -50,10 +51,15 @@ fun CoordinatePickerMap(
     pickedLat: Double?,
     pickedLon: Double?,
     onPick: (latitude: Double, longitude: Double) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    focusTarget: GeoPoint? = null,
+    centerLat: Double? = null,
+    centerLon: Double? = null
 ) {
     val context = LocalContext.current
     val currentOnPick by rememberUpdatedState(onPick)
+    val initialLat = centerLat ?: station.latitude
+    val initialLon = centerLon ?: station.longitude
 
     val mapView = remember {
         Configuration.getInstance().userAgentValue = context.packageName
@@ -61,7 +67,7 @@ fun CoordinatePickerMap(
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             controller.setZoom(16.0)
-            controller.setCenter(GeoPoint(station.latitude, station.longitude))
+            controller.setCenter(GeoPoint(initialLat, initialLon))
         }
     }
 
@@ -79,6 +85,11 @@ fun CoordinatePickerMap(
         onDispose { mapView.onDetach() }
     }
 
+    DisposableEffect(focusTarget) {
+        focusTarget?.let { mapView.controller.animateTo(it) }
+        onDispose { }
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -92,11 +103,11 @@ fun CoordinatePickerMap(
     ) {
         AndroidView(
             factory = {
-                updatePickerMap(mapView, station, pickedLat, pickedLon, eventsOverlay)
+                updatePickerMap(mapView, station, pickedLat, pickedLon, centerLat, centerLon, eventsOverlay)
                 mapView
             },
             update = { view ->
-                updatePickerMap(view, station, pickedLat, pickedLon, eventsOverlay)
+                updatePickerMap(view, station, pickedLat, pickedLon, centerLat, centerLon, eventsOverlay)
             },
             modifier = Modifier.fillMaxSize()
         )
@@ -123,14 +134,16 @@ private fun updatePickerMap(
     station: Station,
     pickedLat: Double?,
     pickedLon: Double?,
+    centerLat: Double?,
+    centerLon: Double?,
     eventsOverlay: MapEventsOverlay
 ) {
     val overlays = mapView.overlays
     overlays.clear()
     overlays.add(eventsOverlay)
 
-    val lat = pickedLat ?: station.latitude
-    val lon = pickedLon ?: station.longitude
+    val lat = pickedLat ?: centerLat ?: station.latitude
+    val lon = pickedLon ?: centerLon ?: station.longitude
     val density = mapView.resources.displayMetrics.density
 
     val marker = Marker(mapView).apply {

@@ -191,6 +191,11 @@ class TrackingService : Service() {
             ContextCompat.startForegroundService(context, intent)
         }
 
+        /** Mulai tracking menuju lokasi custom (titik pin + radius dari Custom Location). */
+        fun startCustom(context: Context, target: com.personaldevelopment.commuterreminder.data.CustomLocationStore.CustomLocation) {
+            start(context, target.toStation(), target.radiusKm)
+        }
+
         fun stop(context: Context) {
             val intent = Intent(context, TrackingService::class.java).apply {
                 action = ACTION_STOP

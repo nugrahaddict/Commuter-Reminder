@@ -19,7 +19,9 @@ data class RouteUiState(
     val isTracking: Boolean = false,
     val error: String? = null,
     val currentLocation: AppLocation? = null,
-    val radiusKm: Double = ReminderSettings.DEFAULT_ACTIVATION_RADIUS_KM
+    val radiusKm: Double = ReminderSettings.ACTIVATION_RADIUS_KM,
+    val routeHistory: List<com.personaldevelopment.commuterreminder.data.RouteHistoryStore.RouteEntry> =
+        emptyList()
 )
 
 class RouteViewModel(
@@ -36,7 +38,11 @@ class RouteViewModel(
     init {
         // radius tersimpan (persistensi) jadi nilai awal UI
         com.personaldevelopment.commuterreminder.data.RadiusSettingsStore.applySaved(appContext)
-        _uiState.value = _uiState.value.copy(radiusKm = ReminderSettings.ACTIVATION_RADIUS_KM)
+        _uiState.value = _uiState.value.copy(
+            radiusKm = ReminderSettings.ACTIVATION_RADIUS_KM,
+            routeHistory = com.personaldevelopment.commuterreminder.data.RouteHistoryStore
+                .history(appContext)
+        )
         load()
         observeLocation()
     }
@@ -66,12 +72,12 @@ class RouteViewModel(
             try {
                 repository.ensureSeeded()
                 val stations = repository.getAll()
-                _uiState.value = RouteUiState(
+                _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     stations = stations
                 )
             } catch (e: Exception) {
-                _uiState.value = RouteUiState(
+                _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Gagal memuat data stasiun: ${e.message}"
                 )
@@ -84,7 +90,50 @@ class RouteViewModel(
     }
 
     fun setTracking(isTracking: Boolean) {
+        if (isTracking) {
+            // catat rute ke riwayat saat reminder benar-benar dimulai
+            val dest = _uiState.value.destination
+            if (dest != null) {
+                viewModelScope.launch {
+                    com.personaldevelopment.commuterreminder.data.RouteHistoryStore.save(
+                        appContext, dest, _uiState.value.radiusKm
+                    )
+                    _uiState.value = _uiState.value.copy(
+                        routeHistory = com.personaldevelopment.commuterreminder.data
+                            .RouteHistoryStore.history(appContext)
+                    )
+                }
+            }
+        }
         _uiState.value = _uiState.value.copy(isTracking = isTracking)
+    }
+
+    /** Terapkan entri riwayat rute: set tujuan + radius siap dipakai. */
+    fun selectRouteHistory(entry: com.personaldevelopment.commuterreminder.data.RouteHistoryStore.RouteEntry) {
+        ReminderSettings.ACTIVATION_RADIUS_KM = entry.radiusKm
+        _uiState.value = _uiState.value.copy(
+            destination = entry.toStation(),
+            radiusKm = entry.radiusKm,
+            error = null
+        )
+        viewModelScope.launch {
+            com.personaldevelopment.commuterreminder.data.RadiusSettingsStore.save(
+                appContext, entry.radiusKm
+            )
+        }
+    }
+
+    /** Hapus satu entri dari riwayat rute. */
+    fun removeRouteHistory(entry: com.personaldevelopment.commuterreminder.data.RouteHistoryStore.RouteEntry) {
+        viewModelScope.launch {
+            com.personaldevelopment.commuterreminder.data.RouteHistoryStore.remove(
+                appContext, entry.id
+            )
+            _uiState.value = _uiState.value.copy(
+                routeHistory = com.personaldevelopment.commuterreminder.data
+                    .RouteHistoryStore.history(appContext)
+            )
+        }
     }
 
     /** Terapkan radius aktivasi (km) hasil input user; service membaca nilainya saat start. */

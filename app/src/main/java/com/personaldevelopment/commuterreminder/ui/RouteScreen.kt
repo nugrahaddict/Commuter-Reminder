@@ -16,10 +16,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -66,7 +70,10 @@ fun RouteScreen(
     onRadiusChange: (Double) -> Unit,
     onStartReminder: () -> Unit,
     onStopReminder: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenCustomLocation: () -> Unit,
+    onRouteHistorySelected: (com.personaldevelopment.commuterreminder.data.RouteHistoryStore.RouteEntry) -> Unit = {},
+    onRouteHistoryRemoved: (com.personaldevelopment.commuterreminder.data.RouteHistoryStore.RouteEntry) -> Unit = {}
 ) {
     var pickerVisible by remember { mutableStateOf(false) }
     var drawerVisible by remember { mutableStateOf(false) }
@@ -90,7 +97,8 @@ fun RouteScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             when {
@@ -123,6 +131,14 @@ fun RouteScreen(
                         onStopReminder = onStopReminder,
                         canStart = uiState.destination != null
                     )
+
+                    RouteHistorySection(
+                        history = uiState.routeHistory,
+                        currentStationId = uiState.destination?.id,
+                        currentRadiusKm = uiState.radiusKm,
+                        onSelect = onRouteHistorySelected,
+                        onRemove = onRouteHistoryRemoved
+                    )
                 }
             }
         }
@@ -135,6 +151,7 @@ fun RouteScreen(
                 drawerVisible = false
                 when (section) {
                     AppSection.SETTINGS -> onOpenSettings()
+                    AppSection.CUSTOM_LOCATION -> onOpenCustomLocation()
                     else -> Unit
                 }
             },
@@ -183,6 +200,12 @@ private fun AppDrawer(
                 icon = Icons.Filled.Settings,
                 selected = currentSection == AppSection.SETTINGS,
                 onClick = { onNavigate(AppSection.SETTINGS) }
+            )
+            DrawerNavItem(
+                label = stringResource(R.string.nav_custom_location),
+                icon = Icons.Filled.Place,
+                selected = currentSection == AppSection.CUSTOM_LOCATION,
+                onClick = { onNavigate(AppSection.CUSTOM_LOCATION) }
             )
         }
     }
@@ -276,6 +299,102 @@ private fun MapSection(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RouteHistorySection(
+    history: List<com.personaldevelopment.commuterreminder.data.RouteHistoryStore.RouteEntry>,
+    currentStationId: String?,
+    currentRadiusKm: Double,
+    onSelect: (com.personaldevelopment.commuterreminder.data.RouteHistoryStore.RouteEntry) -> Unit,
+    onRemove: (com.personaldevelopment.commuterreminder.data.RouteHistoryStore.RouteEntry) -> Unit
+) {
+    if (history.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.route_history_title),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        history.forEach { entry ->
+            val isCurrent = entry.stationId == currentStationId &&
+                entry.radiusKm == currentRadiusKm
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "${entry.stationName} (${entry.toStation().lineShortName})",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = formatRouteHistorySubtitle(entry),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { onSelect(entry) },
+                        enabled = !isCurrent,
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 12.dp, vertical = 4.dp
+                        )
+                    ) {
+                        Text(
+                            text = if (isCurrent) {
+                                stringResource(R.string.route_history_selected)
+                            } else {
+                                stringResource(R.string.route_history_use)
+                            },
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                    IconButton(onClick = { onRemove(entry) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.route_history_delete)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatRouteHistorySubtitle(
+    entry: com.personaldevelopment.commuterreminder.data.RouteHistoryStore.RouteEntry
+): String {
+    val radius = if (entry.radiusKm >= 1.0) {
+        "${entry.radiusKm.toLong()} km"
+    } else {
+        "${(entry.radiusKm * 1000).toInt()} m"
+    }
+    return if (entry.savedAtMillis > 0L) {
+        val date = java.text.SimpleDateFormat("dd MMM yyyy HH:mm", java.util.Locale.getDefault())
+            .format(java.util.Date(entry.savedAtMillis))
+        "Radius $radius • $date"
+    } else {
+        "Radius $radius"
     }
 }
 

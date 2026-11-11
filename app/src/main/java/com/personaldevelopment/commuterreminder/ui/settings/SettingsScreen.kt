@@ -42,11 +42,12 @@ import com.personaldevelopment.commuterreminder.R
 import com.personaldevelopment.commuterreminder.data.AlarmSoundStore
 import kotlinx.coroutines.launch
 
-/** Alur nav dari drawer: beranda, pengaturan, editor stasiun. */
+/** Alur nav dari drawer: beranda, pengaturan, editor stasiun, lokasi custom. */
 enum class AppSection {
     HOME,
     SETTINGS,
-    STATION_EDITOR
+    STATION_EDITOR,
+    CUSTOM_LOCATION
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

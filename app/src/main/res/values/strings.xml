@@ -21,6 +21,34 @@
     <string name="nav_open_menu">Buka menu</string>
     <string name="nav_home">Beranda</string>
     <string name="nav_settings">Pengaturan</string>
+    <string name="nav_custom_location">Custom Location</string>
+    <string name="custom_location_title">Custom Location</string>
+    <string name="custom_location_search_hint">Cari alamat atau tempat…</string>
+    <string name="custom_location_search">Cari</string>
+    <string name="custom_location_picked">Titik: %1$.6f, %2$.6f</string>
+    <string name="custom_location_radius_label">Radius reminder</string>
+    <string name="custom_location_radius_hint">Radius aktif alarm (km)</string>
+    <string name="custom_location_save">Simpan</string>
+    <string name="custom_location_clear">Hapus pin</string>
+    <string name="custom_location_saved_msg">Lokasi custom tersimpan ke riwayat.</string>
+    <string name="custom_location_start_reminder">Mulai Reminder</string>
+    <string name="custom_location_stop_reminder">Stop Reminder</string>
+    <string name="custom_location_history_title">Riwayat lokasi</string>
+    <string name="custom_location_history_empty">Belum ada lokasi tersimpan. Simpan satu untuk memakainya di lain waktu.</string>
+    <string name="custom_location_history_use">Pakai</string>
+    <string name="custom_location_history_selected">Dipakai</string>
+    <string name="custom_location_history_delete">Hapus dari riwayat</string>
+    <string name="custom_location_default_name">Lokasi Custom</string>
+    <string name="custom_location_rename">Ganti nama alias</string>
+    <string name="custom_location_rename_title">Ganti Nama Alias</string>
+    <string name="custom_location_alias_label">Nama alias lokasi</string>
+    <string name="custom_location_rename_confirm">Simpan Nama</string>
+
+    <!-- Riwayat rute commuter reminder -->
+    <string name="route_history_title">Riwayat rute</string>
+    <string name="route_history_use">Pakai</string>
+    <string name="route_history_selected">Dipakai</string>
+    <string name="route_history_delete">Hapus dari riwayat</string>
     <string name="settings_title">Pengaturan</string>
     <string name="settings_section_general">Umum</string>
     <string name="settings_section_alarm">Alarm</string>
