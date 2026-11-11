@@ -10,7 +10,6 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
 import androidx.core.app.NotificationCompat
-import com.personaldevelopment.commuterreminder.MainActivity
 import com.personaldevelopment.commuterreminder.R
 import com.personaldevelopment.commuterreminder.tracking.TrackingService
 
@@ -92,10 +91,15 @@ object Notifier {
             .build()
 
     fun showAlarmNotification(context: Context, title: String, text: String) {
+        // full-screen intent membuka layar alarm di atas lockscreen (ala jam alarm)
         val contentIntent = PendingIntent.getActivity(
             context,
             0,
-            Intent(context, MainActivity::class.java),
+            Intent(context, AlarmActivity::class.java).apply {
+                putExtra(AlarmActivity.EXTRA_TITLE, title)
+                putExtra(AlarmActivity.EXTRA_TEXT, text)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 

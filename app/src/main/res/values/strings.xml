@@ -16,6 +16,10 @@
     <string name="notif_alarm_arriving_text">Kamu tiba di %1$s.</string>
     <string name="notif_action_arrived">Sampai Tujuan</string>
 
+    <!-- Layar alarm full-screen di lockscreen -->
+    <string name="alarm_screen_snooze">Sampai Tujuan — Matikan Alarm</string>
+    <string name="alarm_screen_stop_tracking">Selesaikan Perjalanan</string>
+
     <!-- Navigasi & Pengaturan -->
     <string name="nav_back">Kembali</string>
     <string name="nav_open_menu">Buka menu</string>

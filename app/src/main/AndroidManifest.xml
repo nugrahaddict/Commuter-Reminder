@@ -33,6 +33,16 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".alarm.AlarmActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:screenOrientation="portrait"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.CommuterReminder" />
+
         <service
             android:name=".tracking.TrackingService"
             android:exported="false"
